@@ -220,6 +220,42 @@ class IsotonicRegression(BaseEstimator, TransformerMixin, RegressorMixin):
         if len(x.shape) != 1:
             raise ValueError("x should be a vector")
 
+    def _build_f(self, x, y):
+        """Build the f_ interp1d function."""
+
+        # Handle the out_of_bounds argument by setting bounds_error
+        if self.out_of_bounds in ["raise"]:
+            self.f_ = interpolate.interp1d(self.x_, self.y_, kind='linear',
+                                     bounds_error=True)
+        elif self.out_of_bounds in ["nan", "clip"]:
+            self.f_ = interpolate.interp1d(self.x_, self.y_, kind='linear',
+                                     bounds_error=False)
+        else:
+            raise ValueError("The argument ``out_of_bounds`` must be in "
+                             "'nan', 'clip', 'raise'; got {0}"
+                             .format(self.out_of_bounds))
+
+    def _build_y(self, x, y, sample_weight):
+        """Build the y_ IsotonicRegression."""
+        x, y, sample_weight = check_arrays(x, y, sample_weight,
+                                           sparse_format='dense')
+        y = as_float_array(y)
+        self._check_fit_data(x, y, sample_weight)
+
+        # Determine increasing if auto-determination requested
+        if self.increasing == 'auto':
+            self.increasing_ = check_increasing(x, y)
+        else:
+            self.increasing_ = self.increasing
+
+        order = np.lexsort((y, x))
+        order_inv = np.argsort(order)
+        self.x_ = as_float_array(x[order], copy=False)
+        self.y_ = isotonic_regression(y[order], sample_weight, self.y_min,
+                                      self.y_max, increasing=self.increasing_)
+        
+        return order_inv
+    
     def fit(self, x, y, sample_weight=None, weight=None):
         """Fit the model using x, y as training data.
 
@@ -250,26 +286,16 @@ class IsotonicRegression(BaseEstimator, TransformerMixin, RegressorMixin):
                           "be removed in 0.16.",
                           DeprecationWarning)
             sample_weight = weight
-
-        x, y, sample_weight = check_arrays(x, y, sample_weight,
-                                           sparse_format='dense')
-        y = as_float_array(y)
-        self._check_fit_data(x, y, sample_weight)
-
-        # Determine increasing if auto-determination requested
-        if self.increasing == 'auto':
-            self.increasing_ = check_increasing(x, y)
-        else:
-            self.increasing_ = self.increasing
-
-        order = np.argsort(x)
-        self.x_ = as_float_array(x[order], copy=False)
-        self.y_ = isotonic_regression(y[order], sample_weight, self.y_min,
-                                      self.y_max, increasing=self.increasing_)
+        
+        # Build y_
+        order_inv = self._build_y(x, y, sample_weight)
 
         # Handle the left and right bounds on x
         self.x_min_ = np.min(self.x_)
         self.x_max_ = np.max(self.x_)
+        
+        # Build f_
+        self._build_f(self.x_, self.y_)
 
         return self
 
@@ -291,22 +317,14 @@ class IsotonicRegression(BaseEstimator, TransformerMixin, RegressorMixin):
             raise ValueError("T should be a vector")
 
         # Handle the out_of_bounds argument by setting bounds_error and T
-        if self.out_of_bounds == "raise":
-            f = interpolate.interp1d(self.x_, self.y_, kind='linear',
-                                     bounds_error=True)
-        elif self.out_of_bounds == "nan":
-            f = interpolate.interp1d(self.x_, self.y_, kind='linear',
-                                     bounds_error=False)
-        elif self.out_of_bounds == "clip":
-            f = interpolate.interp1d(self.x_, self.y_, kind='linear',
-                                     bounds_error=False)
-            T = np.clip(T, self.x_min_, self.x_max_)
+        if self.out_of_bounds == "clip":
+            return self.f_(np.clip(T, self.x_min_, self.x_max_))
+        elif self.out_of_bounds in ["raise", "nan"]:
+            return self.f_(T)
         else:
             raise ValueError("The argument ``out_of_bounds`` must be in "
                              "'nan', 'clip', 'raise'; got {0}"
                              .format(self.out_of_bounds))
-
-        return f(T)
 
     def fit_transform(self, x, y, sample_weight=None, weight=None):
         """Fit model and transform y by linear interpolation.
@@ -340,26 +358,15 @@ class IsotonicRegression(BaseEstimator, TransformerMixin, RegressorMixin):
                           DeprecationWarning)
             sample_weight = weight
 
-        x, y, sample_weight = check_arrays(x, y, sample_weight,
-                                           sparse_format='dense')
-        y = as_float_array(y)
-        self._check_fit_data(x, y, sample_weight)
-
-        # Determine increasing if auto-determination requested
-        if self.increasing == 'auto':
-            self.increasing_ = check_increasing(x, y)
-        else:
-            self.increasing_ = self.increasing
-
-        order = np.lexsort((y, x))
-        order_inv = np.argsort(order)
-        self.x_ = as_float_array(x[order], copy=False)
-        self.y_ = isotonic_regression(y[order], sample_weight, self.y_min,
-                                      self.y_max, increasing=self.increasing_)
-
+        # Build y_
+        order_inv = self._build_y(x, y, sample_weight)
+        
         # Handle the left and right bounds on x
         self.x_min_ = np.min(self.x_)
         self.x_max_ = np.max(self.x_)
+        
+        # Build f_
+        self._build_f(self.x_, self.y_)
 
         return self.y_[order_inv]
 
