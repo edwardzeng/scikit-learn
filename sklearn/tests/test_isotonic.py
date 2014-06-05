@@ -212,7 +212,6 @@ def test_isotonic_regression_oob_bad():
 
     # Create model and fit
     ir = IsotonicRegression(increasing='auto', out_of_bounds="xyz")
-    
 
     # Make sure that we throw an error for bad out_of_bounds value
     assert_raises(ValueError, ir.fit, x, y)

@@ -226,10 +226,10 @@ class IsotonicRegression(BaseEstimator, TransformerMixin, RegressorMixin):
         # Handle the out_of_bounds argument by setting bounds_error
         if self.out_of_bounds in ["raise"]:
             self.f_ = interpolate.interp1d(self.x_, self.y_, kind='linear',
-                                     bounds_error=True)
+                                           bounds_error=True)
         elif self.out_of_bounds in ["nan", "clip"]:
             self.f_ = interpolate.interp1d(self.x_, self.y_, kind='linear',
-                                     bounds_error=False)
+                                           bounds_error=False)
         else:
             raise ValueError("The argument ``out_of_bounds`` must be in "
                              "'nan', 'clip', 'raise'; got {0}"
@@ -253,9 +253,9 @@ class IsotonicRegression(BaseEstimator, TransformerMixin, RegressorMixin):
         self.x_ = as_float_array(x[order], copy=False)
         self.y_ = isotonic_regression(y[order], sample_weight, self.y_min,
                                       self.y_max, increasing=self.increasing_)
-        
+
         return order_inv
-    
+
     def fit(self, x, y, sample_weight=None, weight=None):
         """Fit the model using x, y as training data.
 
@@ -286,14 +286,14 @@ class IsotonicRegression(BaseEstimator, TransformerMixin, RegressorMixin):
                           "be removed in 0.16.",
                           DeprecationWarning)
             sample_weight = weight
-        
+
         # Build y_
         order_inv = self._build_y(x, y, sample_weight)
 
         # Handle the left and right bounds on x
         self.x_min_ = np.min(self.x_)
         self.x_max_ = np.max(self.x_)
-        
+
         # Build f_
         self._build_f(self.x_, self.y_)
 
@@ -360,11 +360,11 @@ class IsotonicRegression(BaseEstimator, TransformerMixin, RegressorMixin):
 
         # Build y_
         order_inv = self._build_y(x, y, sample_weight)
-        
+
         # Handle the left and right bounds on x
         self.x_min_ = np.min(self.x_)
         self.x_max_ = np.max(self.x_)
-        
+
         # Build f_
         self._build_f(self.x_, self.y_)
 
