@@ -246,6 +246,8 @@ class IsotonicRegression(BaseEstimator, TransformerMixin, RegressorMixin):
             self.increasing_ = self.increasing
 
         order = np.lexsort((y, X))
+
+        # If sample_weights is passed, removed zero-weight values and clean order
         if sample_weight is not None:
             sample_weight = check_array(sample_weight, ensure_2d=False)
             order = order[np.where(sample_weight > 0)]
